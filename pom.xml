@@ -63,6 +63,11 @@
             <artifactId>spring-boot-starter-webclient</artifactId>
             <version>4.0.0</version>
         </dependency>
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-resolver-dns-native-macos</artifactId>
+            <classifier>osx-aarch_64</classifier>
+        </dependency>
 
     </dependencies>
 

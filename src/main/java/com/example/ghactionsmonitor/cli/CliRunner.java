@@ -1,17 +1,16 @@
 package com.example.ghactionsmonitor.cli;
 
 import com.example.ghactionsmonitor.service.MonitorService;
-import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
-import picocli.CommandLine;
+
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
 
 @Component
 @Command(name = "gh-monitor", mixinStandardHelpOptions = true, version = "1.0",
-        description = "Spring Boot + Picocli CLI")
-public class CliRunner implements CommandLineRunner,Runnable {
+        description = "Monitor GitHub Actions workflows in real time")
+public class CliRunner implements Runnable {
 
     @Option(names = {"-r","--repo"}, description = "GitHub Repository (owner/repo)", required = true)
     private String repo;
@@ -28,8 +27,9 @@ public class CliRunner implements CommandLineRunner,Runnable {
     @Override
     public void run() {
         printBanner();
-        System.out.println("Repo: " + repo);
-        System.out.println("Token: " + token);
+        printIntro();
+        //System.out.println("Repo: " + repo);
+        //System.out.println("Token: " + token);
         monitorService.startMonitoring(repo,token);
     }
 
@@ -42,9 +42,11 @@ public class CliRunner implements CommandLineRunner,Runnable {
         """);
     }
 
-    @Override
-    public void run(String...args) {
-        new CommandLine(this).execute(args);
+    private void printIntro() {
+        System.out.printf("""
+                Monitoring repository: %s
+                Press Ctrl+C to stop monitoring
+                Use --help to see all options%n""", repo);
     }
 
 }
