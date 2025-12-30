@@ -1,0 +1,74 @@
+package com.example.ghactionsmonitor.cli;
+
+import org.jline.reader.*;
+import org.jline.reader.impl.DefaultParser;
+import org.jline.terminal.Terminal;
+import org.jline.terminal.TerminalBuilder;
+import org.jline.widget.TailTipWidgets;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.ApplicationContext;
+import org.springframework.stereotype.Component;
+import picocli.CommandLine;
+import picocli.shell.jline3.PicocliCommands;
+import picocli.spring.PicocliSpringFactory;
+
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
+@Component
+public class ShellRunner implements CommandLineRunner {
+
+    private final RootCommand rootCommand;
+    private final ApplicationContext ctx;
+
+
+    public ShellRunner(RootCommand rootCommand, ApplicationContext ctx) {
+        this.rootCommand = rootCommand;
+        this.ctx = ctx;
+    }
+
+    @Override
+    public void run(String... args) throws Exception {
+        Path workDir = Paths.get(System.getProperty("user.dir"));
+
+        PicocliSpringFactory factory = new PicocliSpringFactory(ctx);
+        CommandLine cmd = new CommandLine(rootCommand, factory);
+        PicocliCommands picocliCommands = new PicocliCommands(cmd);
+
+        Parser parser = new DefaultParser();
+        Terminal terminal = TerminalBuilder.builder().system(true).build();
+
+        org.jline.console.SystemRegistry systemRegistry =
+                new org.jline.console.impl.SystemRegistryImpl(parser, terminal, () -> workDir, null);
+        systemRegistry.setCommandRegistries(picocliCommands);
+
+        LineReader reader = LineReaderBuilder.builder()
+                .terminal(terminal)
+                .completer(systemRegistry.completer())
+                .parser(parser)
+                .variable(LineReader.LIST_MAX, 50)
+                .build();
+
+        rootCommand.setReader(reader);
+        rootCommand.run();
+
+        TailTipWidgets widgets = new TailTipWidgets(reader, systemRegistry::commandDescription, 5,
+                TailTipWidgets.TipType.COMPLETER);
+        widgets.enable();
+
+        String prompt = "ghshell> ";
+
+        while (true) {
+            try {
+                String line = reader.readLine(prompt);
+                systemRegistry.execute(line);
+            } catch (UserInterruptException e) {
+                // CTRL C Ignored
+            } catch (EndOfFileException e) {
+                break; // CTRL-D: ends process
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+}
