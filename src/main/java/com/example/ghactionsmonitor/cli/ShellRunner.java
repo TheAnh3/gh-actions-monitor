@@ -9,20 +9,22 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 import picocli.CommandLine;
-import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
 import picocli.shell.jline3.PicocliCommands;
+import picocli.spring.PicocliSpringFactory;
+
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
 @Component
 public class ShellRunner implements CommandLineRunner {
-
+    private final ApplicationContext applicationContext;
     private final RootCommand rootCommand;
     List<String> commands = List.of("monitor", "exit", "clear", "help");
 
 
-    public ShellRunner(RootCommand rootCommand) {
+    public ShellRunner(ApplicationContext applicationContext, RootCommand rootCommand) {
+        this.applicationContext = applicationContext;
         this.rootCommand = rootCommand;
     }
 
@@ -32,7 +34,7 @@ public class ShellRunner implements CommandLineRunner {
 
         Terminal terminal = TerminalBuilder.builder().system(true).build();
 
-        PicocliCommandsFactory factory = new PicocliCommandsFactory();
+        CommandLine.IFactory factory = new PicocliSpringFactory(applicationContext);
         CommandLine cmd = new CommandLine(rootCommand, factory);
         PicocliCommands picocliCommands = new PicocliCommands(cmd);
 
@@ -49,10 +51,6 @@ public class ShellRunner implements CommandLineRunner {
                 .build();
 
         rootCommand.setReader(reader);
-        ClearScreenCommand clearCmd = new ClearScreenCommand();
-        clearCmd.setReader(reader);
-        rootCommand.setClearScreenCommand(clearCmd);
-        cmd.addSubcommand("clear", clearCmd);
         rootCommand.run();
 
         TailTipWidgets widgets = new TailTipWidgets(reader, systemRegistry::commandDescription, 5,
