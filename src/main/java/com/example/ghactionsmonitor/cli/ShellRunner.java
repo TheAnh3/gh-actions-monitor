@@ -9,35 +9,34 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 import picocli.CommandLine;
+import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
 import picocli.shell.jline3.PicocliCommands;
-import picocli.spring.PicocliSpringFactory;
-
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 
 @Component
 public class ShellRunner implements CommandLineRunner {
 
     private final RootCommand rootCommand;
-    private final ApplicationContext ctx;
+    List<String> commands = List.of("monitor", "exit", "clear", "help");
 
 
-    public ShellRunner(RootCommand rootCommand, ApplicationContext ctx) {
+    public ShellRunner(RootCommand rootCommand) {
         this.rootCommand = rootCommand;
-        this.ctx = ctx;
     }
 
     @Override
     public void run(String... args) throws Exception {
         Path workDir = Paths.get(System.getProperty("user.dir"));
 
-        PicocliSpringFactory factory = new PicocliSpringFactory(ctx);
+        Terminal terminal = TerminalBuilder.builder().system(true).build();
+
+        PicocliCommandsFactory factory = new PicocliCommandsFactory();
         CommandLine cmd = new CommandLine(rootCommand, factory);
         PicocliCommands picocliCommands = new PicocliCommands(cmd);
 
         Parser parser = new DefaultParser();
-        Terminal terminal = TerminalBuilder.builder().system(true).build();
-
         org.jline.console.SystemRegistry systemRegistry =
                 new org.jline.console.impl.SystemRegistryImpl(parser, terminal, () -> workDir, null);
         systemRegistry.setCommandRegistries(picocliCommands);
@@ -50,6 +49,10 @@ public class ShellRunner implements CommandLineRunner {
                 .build();
 
         rootCommand.setReader(reader);
+        ClearScreenCommand clearCmd = new ClearScreenCommand();
+        clearCmd.setReader(reader);
+        rootCommand.setClearScreenCommand(clearCmd);
+        cmd.addSubcommand("clear", clearCmd);
         rootCommand.run();
 
         TailTipWidgets widgets = new TailTipWidgets(reader, systemRegistry::commandDescription, 5,
@@ -61,14 +64,30 @@ public class ShellRunner implements CommandLineRunner {
         while (true) {
             try {
                 String line = reader.readLine(prompt);
-                systemRegistry.execute(line);
+                String commandName = line.split("\\s+")[0]; // entered command
+
+                if (!commands.contains(commandName)) {
+                    var w = reader.getTerminal().writer();
+                    w.println("Unknown command: " + commandName);
+                    CommandSuggester suggester = new CommandSuggester(commands);
+                    String suggestion = suggester.suggestCommand(commandName);
+                    if (suggestion != null) {
+                        w.println("Did you mean: " + suggestion + "?");
+                    } else {
+                        w.println("Type 'help' to see available commands.");
+                    }
+                    w.flush();
+                }else {
+                    systemRegistry.execute(line);
+                }
             } catch (UserInterruptException e) {
                 // CTRL C Ignored
             } catch (EndOfFileException e) {
                 break; // CTRL-D: ends process
             } catch (Exception e) {
-                e.printStackTrace();
-            }
+
+          }
         }
+
     }
 }

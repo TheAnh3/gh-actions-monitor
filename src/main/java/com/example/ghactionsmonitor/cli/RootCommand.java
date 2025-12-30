@@ -4,21 +4,27 @@ import lombok.Setter;
 import org.jline.reader.LineReader;
 import org.springframework.stereotype.Component;
 import picocli.CommandLine.Command;
-import picocli.shell.jline3.PicocliCommands;
 
-@Setter
 @Component
 @Command(name = "",
         description = "GitHub Actions interactive shell",
         subcommands = {
                 MonitorCommand.class,
                 ExitCommand.class,
-                PicocliCommands.ClearScreen.class,
                 picocli.CommandLine.HelpCommand.class
         })
 public class RootCommand implements Runnable {
 
     private LineReader reader;
+    @Setter
+    private ClearScreenCommand clearScreenCommand;
+
+    public void setReader(LineReader reader) {
+        this.reader = reader;
+        if (clearScreenCommand != null) {
+            clearScreenCommand.setReader(reader);
+        }
+    }
 
     @Override
     public void run() {

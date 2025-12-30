@@ -73,7 +73,11 @@
             <artifactId>picocli-shell-jline3</artifactId>
             <version>4.7.7</version>
         </dependency>
-
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-text</artifactId>
+            <version>1.14.0</version>
+        </dependency>
     </dependencies>
 
     <build>
