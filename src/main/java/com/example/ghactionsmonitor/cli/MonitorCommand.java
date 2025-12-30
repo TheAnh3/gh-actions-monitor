@@ -4,6 +4,7 @@ import com.example.ghactionsmonitor.service.MonitorService;
 import org.springframework.stereotype.Component;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.ParentCommand;
 
 import java.io.IOException;
 
@@ -18,6 +19,9 @@ public class MonitorCommand implements Runnable {
     @Option(names = {"-t","--token"}, description = "GitHub Personal Access Token", required = true)
     private String token;
 
+    @ParentCommand
+    private RootCommand parent;
+
     private final MonitorService monitorService;
 
     public MonitorCommand(MonitorService monitorService) {
@@ -28,7 +32,7 @@ public class MonitorCommand implements Runnable {
     public void run() {
         System.out.printf("Starting monitoring for repository: %s%n", repo);
         try {
-            monitorService.startMonitoring(repo, token);
+            monitorService.startMonitoring(repo, token, parent.getReader());
         } catch (IOException e) {
             System.out.println("Monitoring failed" + e.getMessage());
         }

@@ -15,7 +15,9 @@ import picocli.CommandLine.Command;
                 MonitorCommand.class,
                 ExitCommand.class,
                 ClearScreenCommand.class,
-                picocli.CommandLine.HelpCommand.class
+                picocli.CommandLine.HelpCommand.class,
+                StopCommand.class,
+                StatusCommand.class,
         })
 public class RootCommand implements Runnable {
 

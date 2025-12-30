@@ -20,7 +20,7 @@ import java.util.List;
 public class ShellRunner implements CommandLineRunner {
     private final ApplicationContext applicationContext;
     private final RootCommand rootCommand;
-    List<String> commands = List.of("monitor", "exit", "clear", "help");
+    List<String> commands = List.of("monitor", "exit", "clear", "help", "stop", "status");
 
 
     public ShellRunner(ApplicationContext applicationContext, RootCommand rootCommand) {
