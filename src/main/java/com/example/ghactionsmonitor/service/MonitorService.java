@@ -1,5 +1,6 @@
 package com.example.ghactionsmonitor.service;
 
+import com.example.ghactionsmonitor.cli.MonitorStateStore;
 import com.example.ghactionsmonitor.client.GitHubClient;
 import com.example.ghactionsmonitor.model.WorkflowRun;
 import lombok.Getter;
@@ -7,18 +8,24 @@ import org.jline.reader.LineReader;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
 public class MonitorService {
     private final GitHubClient gitHubClient;
+    private final MonitorStateStore stateStore;
 
-    MonitorService(GitHubClient gitHubClient){
+
+    MonitorService(GitHubClient gitHubClient, MonitorStateStore stateStore){
         this.gitHubClient = gitHubClient;
+        this.stateStore = stateStore;
     }
     @Getter
     boolean running = false;
     private Thread MonitoringThread;
+
 
     public synchronized void startMonitoring(String repo, String token, LineReader reader) throws IOException {
         if (running) {
@@ -42,14 +49,22 @@ public class MonitorService {
                     if (runs.isEmpty()) {
                         reader.printAbove("No Workflow Runs found");
                     } else {
-                        for (WorkflowRun run : runs) {
+                        Long lastSeen = stateStore.getLastSeen(repo);
+                        boolean firstRun = lastSeen == null;
+                        Instant oneHourAgo = Instant.now().minusSeconds(3600);
+
+                        runs.stream()
+                                .filter(run -> firstRun ? run.startedAt().isAfter(oneHourAgo) : run.id() > lastSeen)
+                                .sorted(Comparator.comparingLong(WorkflowRun::id))
+                                .forEach(run -> {
                             String line = String.format(
                                     "ID: %d | Name: %s | Branch: %s | Commit: %s | Status: %s | Actor: %s | Started: %s | Completed: %s",
                                     run.id(), run.name(), run.branch(), run.commitSHA(), run.status(), run.actorLogin(),
                                     run.startedAt(), run.completedAt()
                             );
                             reader.printAbove(line);
-                        }
+                            stateStore.updateLastSeen(repo, run.id());
+                             });
                     }
                     Thread.sleep(15 * 1000L);
                 } catch (InterruptedException e) {
