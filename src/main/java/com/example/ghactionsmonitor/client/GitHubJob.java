@@ -2,8 +2,6 @@ package com.example.ghactionsmonitor.client;
 
 import com.example.ghactionsmonitor.model.Job;
 import com.example.ghactionsmonitor.model.Status;
-import com.example.ghactionsmonitor.model.Step;
-
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.List;
@@ -16,17 +14,19 @@ public record GitHubJob(
         String started_at,
         String completed_at,
         long run_id,
-        List<GitHubStep> steps
+        List<GitHubStep> steps // list steps z jobu
 ) {
-    public Job toJob(long workflowRunId) {
+
+
+    public Job toJob() {
         return new Job(
                 id,
-                workflowRunId,
+                run_id,
                 name,
                 parseInstant(started_at),
                 parseInstant(completed_at),
                 Status.fromString(conclusion != null ? conclusion : status),
-                steps.stream().map(GitHubStep::toStep).toList()
+                steps != null ? steps.stream().map(GitHubStep::toStep).toList() : List.of()
         );
     }
 

@@ -37,7 +37,6 @@ public class GitHubClient {
     }
 
 
-    // 2️⃣ Seznam jobů pro workflow run
     public List<Job> listJobs(String owner, String repo, long runId, String token) {
         try {
             GitHubJobsResponse response = webClient.get()
@@ -74,7 +73,6 @@ public class GitHubClient {
         }
     }
 
-    // 4️⃣ Získání steps přímo z jobu
     public List<Step> listStepsFromJob(GitHubJob job) {
         if (job == null || job.steps() == null) return List.of();
         return job.steps().stream()

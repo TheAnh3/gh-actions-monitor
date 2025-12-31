@@ -11,7 +11,7 @@ public record GitHubJobsResponse(
     public List<Job> toJobs(long workflowRunId) {
         if (jobs == null) return List.of();
         return jobs.stream()
-                .map(job -> job.toJob(workflowRunId))
+                .map(GitHubJob::toJob)
                 .collect(Collectors.toList());
     }
 }

@@ -2,7 +2,6 @@ package com.example.ghactionsmonitor.service;
 
 import com.example.ghactionsmonitor.cli.MonitorStateStore;
 import com.example.ghactionsmonitor.client.GitHubClient;
-import com.example.ghactionsmonitor.client.GitHubJob;
 import com.example.ghactionsmonitor.model.*;
 import lombok.Getter;
 import org.jline.reader.LineReader;
@@ -85,7 +84,7 @@ public class MonitorService {
     private List<Event> collectEventsForRun(String owner, String repo, WorkflowRun run, String token) {
         List<Event> events = new ArrayList<>();
 
-        // 1️⃣ Workflow event
+        // --- Workflow ---
         EventType workflowEvent = switch (run.status()) {
             case IN_PROGRESS -> EventType.WORKFLOW_STARTED;
             case SUCCESS, FAILURE, CANCELED -> EventType.WORKFLOW_COMPLETED;
@@ -107,9 +106,10 @@ public class MonitorService {
                 run.completedAt()            // completedAt
         ));
 
-        // 2️⃣ Jobs + steps
+        // --- Jobs a steps ---
         List<Job> jobs = gitHubClient.listJobs(owner, repo, run.id(), token);
         for (Job job : jobs) {
+            // Job event
             EventType jobEvent = switch (job.status()) {
                 case IN_PROGRESS -> EventType.JOB_STARTED;
                 case SUCCESS, FAILURE, CANCELED -> EventType.JOB_COMPLETED;
@@ -128,14 +128,12 @@ public class MonitorService {
                     null,
                     null,
                     null,
-                    job.completedAt()          // completedAt
+                    job.completedAt()
             ));
 
-            // Steps
-            GitHubJob ghJob = gitHubClient.getGitHubJob(owner, repo, job.id(), token);
-            if (ghJob != null && ghJob.steps() != null) {
-                for (var step : ghJob.steps()) {
-                    Status stepStatus = Status.fromString(step.conclusion() != null ? step.conclusion() : step.status());
+            if (job.mappedSteps() != null) {
+                for (Step step : job.mappedSteps()) {
+                    Status stepStatus = step.status();
                     EventType stepEvent = switch (stepStatus) {
                         case IN_PROGRESS -> EventType.STEP_STARTED;
                         case SUCCESS, FAILURE, CANCELED -> EventType.STEP_COMPLETED;
@@ -144,7 +142,7 @@ public class MonitorService {
 
                     events.add(new Event(
                             stepEvent,
-                            step.started_at() != null ? Instant.parse(step.started_at()) : Instant.now(),
+                            step.startedAt() != null ? step.startedAt() : Instant.now(),
                             EntityType.STEP,
                             step.name(),
                             stepStatus,
@@ -154,7 +152,7 @@ public class MonitorService {
                             null,
                             null,
                             job.name(),
-                            step.completed_at() != null ? Instant.parse(step.completed_at()) : null
+                            step.compledAt()
                     ));
                 }
             }
@@ -162,6 +160,8 @@ public class MonitorService {
 
         return events;
     }
+
+
 
 
     public void stopMonitoring() {
