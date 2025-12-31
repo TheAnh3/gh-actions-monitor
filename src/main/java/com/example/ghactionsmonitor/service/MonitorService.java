@@ -2,6 +2,7 @@ package com.example.ghactionsmonitor.service;
 
 import com.example.ghactionsmonitor.cli.MonitorStateStore;
 import com.example.ghactionsmonitor.client.GitHubClient;
+import com.example.ghactionsmonitor.client.GitHubJob;
 import com.example.ghactionsmonitor.model.*;
 import lombok.Getter;
 import org.jline.reader.LineReader;
@@ -58,17 +59,11 @@ public class MonitorService {
                                 .filter(run -> firstRun ? run.startedAt().isAfter(oneHourAgo) : run.id() > lastSeen)
                                 .sorted(Comparator.comparingLong(WorkflowRun::id))
                                 .forEach(run -> {
-                                    // Listing workflow + jobs + steps
-                                    List<Event> events = collectEvents(owner, repo, run, token);
-
-                                    // formatting
+                                    List<Event> events = collectEventsForRun(owner, repoName, run, token);
                                     for (Event event : events) {
-                                        String formatted = formatEvent(event);
-                                        reader.printAbove(formatted);
+                                        reader.printAbove(formatEvent(event));
                                     }
-
-                                    // update last reported workflow
-                                    stateStore.updateLastSeen(repo, run.id());
+                                    stateStore.updateLastSeen(repoName, run.id());
                                 });
                     }
                     Thread.sleep(15 * 1000L);
@@ -87,25 +82,32 @@ public class MonitorService {
     }
 
 
-    private List<Event> collectEvents(String owner, String repo, WorkflowRun run, String token) {
+    private List<Event> collectEventsForRun(String owner, String repo, WorkflowRun run, String token) {
         List<Event> events = new ArrayList<>();
 
-        // Workflow events
+        // 1️⃣ Workflow event
         EventType workflowEvent = switch (run.status()) {
             case IN_PROGRESS -> EventType.WORKFLOW_STARTED;
             case SUCCESS, FAILURE, CANCELED -> EventType.WORKFLOW_COMPLETED;
             default -> EventType.WORKFLOW_QUEUED;
         };
+
         events.add(new Event(
                 workflowEvent,
                 run.startedAt() != null ? run.startedAt() : Instant.now(),
                 EntityType.WORKFLOW,
                 run.name(),
                 run.status(),
-                "Branch: " + run.branch() + ", Commit: " + run.commitSHA()
+                run.name(),
+                run.id(),
+                run.branch(),
+                run.commitSHA(),
+                run.actorLogin(),
+                null,                       // jobName
+                run.completedAt()            // completedAt
         ));
 
-        // Jobs
+        // 2️⃣ Jobs + steps
         List<Job> jobs = gitHubClient.listJobs(owner, repo, run.id(), token);
         for (Job job : jobs) {
             EventType jobEvent = switch (job.status()) {
@@ -113,36 +115,54 @@ public class MonitorService {
                 case SUCCESS, FAILURE, CANCELED -> EventType.JOB_COMPLETED;
                 default -> EventType.JOB_STARTED;
             };
+
             events.add(new Event(
                     jobEvent,
                     job.startedAt() != null ? job.startedAt() : Instant.now(),
                     EntityType.JOB,
                     job.name(),
                     job.status(),
-                    "Workflow: " + run.name()
+                    run.name(),
+                    job.id(),
+                    null,
+                    null,
+                    null,
+                    null,
+                    job.completedAt()          // completedAt
             ));
 
             // Steps
-            List<Step> steps = gitHubClient.listSteps(owner, repo, run.id(), job.id(), token);
-            for (Step step : steps) {
-                EventType stepEvent = switch (step.status()) {
-                    case IN_PROGRESS -> EventType.STEP_STARTED;
-                    case SUCCESS, FAILURE, CANCELED -> EventType.STEP_COMPLETED;
-                    default -> EventType.STEP_STARTED;
-                };
-                events.add(new Event(
-                        stepEvent,
-                        step.startedAt() != null ? step.startedAt() : Instant.now(),
-                        EntityType.STEP,
-                        step.name(),
-                        step.status(),
-                        "Job: " + job.name()
-                ));
+            GitHubJob ghJob = gitHubClient.getGitHubJob(owner, repo, job.id(), token);
+            if (ghJob != null && ghJob.steps() != null) {
+                for (var step : ghJob.steps()) {
+                    Status stepStatus = Status.fromString(step.conclusion() != null ? step.conclusion() : step.status());
+                    EventType stepEvent = switch (stepStatus) {
+                        case IN_PROGRESS -> EventType.STEP_STARTED;
+                        case SUCCESS, FAILURE, CANCELED -> EventType.STEP_COMPLETED;
+                        default -> EventType.STEP_STARTED;
+                    };
+
+                    events.add(new Event(
+                            stepEvent,
+                            step.started_at() != null ? Instant.parse(step.started_at()) : Instant.now(),
+                            EntityType.STEP,
+                            step.name(),
+                            stepStatus,
+                            run.name(),
+                            null,
+                            null,
+                            null,
+                            null,
+                            job.name(),
+                            step.completed_at() != null ? Instant.parse(step.completed_at()) : null
+                    ));
+                }
             }
         }
 
         return events;
     }
+
 
     public void stopMonitoring() {
         if (!running) {
@@ -153,34 +173,47 @@ public class MonitorService {
         running = false;
         MonitoringThread.interrupt();
     }
+
     private String formatEvent(Event event) {
+        String timestamp = event.timestamp() != null ? event.timestamp().toString() : "?";
+
         return switch (event.entityType()) {
             case WORKFLOW -> String.format(
-                    "[%s] WORKFLOW | ID: %s | Name: %s | Branch: %s | Commit: %s | Status: %s | Actor: %s",
-                    event.timestamp(),
-                    event.details().contains("ID:") ? event.details().split("ID:")[1].trim() : "?",
+                    "[%s] WORKFLOW | ID: %d | Name: %s | Branch: %s | Commit: %s | Status: %s | Actor: %s | Started: %s | Completed: %s",
+                    timestamp,
+                    event.id() != null ? event.id() : -1,
                     event.entityName(),
-                    event.details().contains("Branch:") ? event.details().split("Branch:")[1].split(",")[0].trim() : "?",
-                    event.details().contains("Commit:") ? event.details().split("Commit:")[1].trim() : "?",
+                    event.branch() != null ? event.branch() : "?",
+                    event.commit() != null ? event.commit() : "?",
                     event.status(),
-                    event.details().contains("Actor:") ? event.details().split("Actor:")[1].trim() : "?"
+                    event.actor() != null ? event.actor() : "?",
+                    event.timestamp(),                  // start
+                    event.completedAt() != null ? event.completedAt() : "?" // completion
             );
             case JOB -> String.format(
-                    "[%s] JOB | Name: %s | Status: %s | Workflow: %s",
-                    event.timestamp(),
+                    "[%s] JOB      | ID: %d | Name: %s | Status: %s | Workflow: %s | Started: %s | Completed: %s",
+                    timestamp,
+                    event.id() != null ? event.id() : -1,
                     event.entityName(),
                     event.status(),
-                    event.details().replace("Workflow: ", "")
+                    event.workflowName(),
+                    event.timestamp(),                  // start
+                    event.completedAt() != null ? event.completedAt() : "?" // completion
             );
             case STEP -> String.format(
-                    "[%s] STEP | Name: %s | Status: %s | Job: %s",
-                    event.timestamp(),
+                    "[%s] STEP     | Name: %s | Status: %s | Job: %s | Workflow: %s | Started: %s | Completed: %s",
+                    timestamp,
                     event.entityName(),
                     event.status(),
-                    event.details().replace("Job: ", "")
+                    event.jobName(),
+                    event.workflowName(),
+                    event.timestamp(),                  // start
+                    event.completedAt() != null ? event.completedAt() : "?" // completion
             );
         };
     }
+
+
 
 
 }

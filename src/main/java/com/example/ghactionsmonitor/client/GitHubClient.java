@@ -8,6 +8,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
 public class GitHubClient {
@@ -35,6 +36,8 @@ public class GitHubClient {
 
     }
 
+
+    // 2️⃣ Seznam jobů pro workflow run
     public List<Job> listJobs(String owner, String repo, long runId, String token) {
         try {
             GitHubJobsResponse response = webClient.get()
@@ -44,27 +47,38 @@ public class GitHubClient {
                     .bodyToMono(GitHubJobsResponse.class)
                     .block();
 
-            return response != null ? response.toJobs() : List.of();
+            return response != null ? response.toJobs(runId) : List.of();
         } catch (WebClientResponseException e) {
-            System.out.println("Github API Error: " +  e.getStatusCode() + " - " + e.getResponseBodyAsString());
+            System.out.println("GitHub Jobs Error for runId=" + runId + ": " + e.getStatusCode());
             return List.of();
         }
     }
 
-    public List<Step> listSteps(String owner, String repo, long runId, long jobId, String token) {
+    public GitHubJob getGitHubJob(String owner, String repo, long jobId, String token) {
         try {
-            GitHubStepsResponse response = webClient.get()
-                    .uri("/repos/{owner}/{repo}/actions/jobs/{job_id}/steps", owner, repo, jobId)
+            GitHubJobsResponse response = webClient.get()
+                    .uri("/repos/{owner}/{repo}/actions/jobs/{job_id}", owner, repo, jobId)
                     .headers(h -> h.setBearerAuth(token))
                     .retrieve()
-                    .bodyToMono(GitHubStepsResponse.class)
+                    .bodyToMono(GitHubJobsResponse.class)
                     .block();
 
-            return response != null ? response.toSteps() : List.of();
-
+            if (response != null && response.jobs() != null && !response.jobs().isEmpty()) {
+                return response.jobs().get(0);
+            } else {
+                return null;
+            }
         } catch (WebClientResponseException e) {
-            System.out.println("GitHub API Error: " + e.getStatusCode() + " - " + e.getResponseBodyAsString());
-            return List.of();
+            System.out.println("GitHub Job Error for jobId=" + jobId + ": " + e.getStatusCode());
+            return null;
         }
+    }
+
+    // 4️⃣ Získání steps přímo z jobu
+    public List<Step> listStepsFromJob(GitHubJob job) {
+        if (job == null || job.steps() == null) return List.of();
+        return job.steps().stream()
+                .map(GitHubStep::toStep)
+                .collect(Collectors.toList());
     }
 }

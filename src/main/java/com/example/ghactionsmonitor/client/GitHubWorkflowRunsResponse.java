@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public record GitHubWorkflowRunsResponse(
-        int total_count,
+        Integer total_count,
         List<GitHubWorkflowRun> workflow_runs
 ) {
     public List<WorkflowRun>toWorkflowRuns() {

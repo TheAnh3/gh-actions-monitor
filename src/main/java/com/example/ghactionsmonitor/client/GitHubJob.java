@@ -5,6 +5,7 @@ import com.example.ghactionsmonitor.model.Status;
 import com.example.ghactionsmonitor.model.Step;
 
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
 public record GitHubJob(
@@ -17,19 +18,25 @@ public record GitHubJob(
         long run_id,
         List<GitHubStep> steps
 ) {
-    public Job toJob() {
-        List<Step> mappedSteps = steps != null
-                ? steps.stream().map(GitHubStep::toStep).toList()
-                : List.of();
-
+    public Job toJob(long workflowRunId) {
         return new Job(
                 id,
-                run_id,
+                workflowRunId,
                 name,
-                started_at != null ? Instant.parse(started_at) : null,
-                completed_at != null ? Instant.parse(completed_at) : null,
+                parseInstant(started_at),
+                parseInstant(completed_at),
                 Status.fromString(conclusion != null ? conclusion : status),
-                mappedSteps
+                steps.stream().map(GitHubStep::toStep).toList()
         );
+    }
+
+    private Instant parseInstant(String timestamp) {
+        if (timestamp == null || timestamp.isEmpty()) return null;
+        try {
+            return Instant.parse(timestamp);
+        } catch (DateTimeParseException e) {
+            System.err.println("Failed to parse timestamp: " + timestamp);
+            return null;
+        }
     }
 }

@@ -5,10 +5,13 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public record GitHubJobsResponse(
-        int total_count,
+        Integer total_count,
         List<GitHubJob> jobs
 ) {
-    public List<Job> toJobs() {
-        return jobs.stream().map(GitHubJob::toJob).collect(Collectors.toList());
+    public List<Job> toJobs(long workflowRunId) {
+        if (jobs == null) return List.of();
+        return jobs.stream()
+                .map(job -> job.toJob(workflowRunId))
+                .collect(Collectors.toList());
     }
 }

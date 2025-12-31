@@ -15,3 +15,13 @@ jobs:
 
       - name: Print Hello
         run: echo "Hello from GitHub Actions!"
+
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Run Script
+        run: |
+          echo "Step 4 running..."
+          echo "Another command"
