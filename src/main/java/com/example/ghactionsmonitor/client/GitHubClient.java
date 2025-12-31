@@ -1,5 +1,7 @@
 package com.example.ghactionsmonitor.client;
 
+import com.example.ghactionsmonitor.model.Job;
+import com.example.ghactionsmonitor.model.Step;
 import com.example.ghactionsmonitor.model.WorkflowRun;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -31,5 +33,38 @@ public class GitHubClient {
             }
 
 
+    }
+
+    public List<Job> listJobs(String owner, String repo, long runId, String token) {
+        try {
+            GitHubJobsResponse response = webClient.get()
+                    .uri("/repos/{owner}/{repo}/actions/runs/{run_id}/jobs", owner, repo, runId)
+                    .headers(h -> h.setBearerAuth(token))
+                    .retrieve()
+                    .bodyToMono(GitHubJobsResponse.class)
+                    .block();
+
+            return response != null ? response.toJobs() : List.of();
+        } catch (WebClientResponseException e) {
+            System.out.println("Github API Error: " +  e.getStatusCode() + " - " + e.getResponseBodyAsString());
+            return List.of();
+        }
+    }
+
+    public List<Step> listSteps(String owner, String repo, long runId, long jobId, String token) {
+        try {
+            GitHubStepsResponse response = webClient.get()
+                    .uri("/repos/{owner}/{repo}/actions/jobs/{job_id}/steps", owner, repo, jobId)
+                    .headers(h -> h.setBearerAuth(token))
+                    .retrieve()
+                    .bodyToMono(GitHubStepsResponse.class)
+                    .block();
+
+            return response != null ? response.toSteps() : List.of();
+
+        } catch (WebClientResponseException e) {
+            System.out.println("GitHub API Error: " + e.getStatusCode() + " - " + e.getResponseBodyAsString());
+            return List.of();
+        }
     }
 }

@@ -20,7 +20,7 @@ public class MonitorStateStore {
     private Map<String, Long> lastSeenWorkflowRuns = new HashMap<>();
 
     public MonitorStateStore() {
-        this.file = new File(System.getProperty("user.home") + "/.gh-actions-monitor/monitor_state.json");
+        this.file = new File("./monitor_state.json");
         init();
     }
 

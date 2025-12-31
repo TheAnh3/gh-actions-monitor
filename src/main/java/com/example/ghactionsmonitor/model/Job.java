@@ -8,6 +8,6 @@ public record Job(
         String name,
         Instant startedAt,
         Instant completedAt,
-        Status status
-) {
+        Status status,
+        java.util.List<Step> mappedSteps) {
 }
