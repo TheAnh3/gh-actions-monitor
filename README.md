@@ -97,6 +97,10 @@ To list all available commands, type:
 ```bash
 help
 ```
+<img width="424" height="179" alt="Snímek obrazovky 2025-12-31 v 4 50 20" src="https://github.com/user-attachments/assets/4578426e-d1cc-431c-b944-9bfa89b5fa75" />
+
+<img width="426" height="325" alt="Snímek obrazovky 2025-12-31 v 4 50 30" src="https://github.com/user-attachments/assets/2ad72468-be47-4b30-9280-e11a21edfe40" />
+
 
 Available Commands: Command	Description
 - *monitor* <owner/repo> <token> = Start monitoring GitHub Actions for a repository
@@ -111,16 +115,20 @@ Available Commands: Command	Description
 - *tab completion*
 - *inline help*
 - *smart command suggestions (Levenshtein distance)*
+  
+ <img width="166" height="69" alt="Snímek obrazovky 2025-12-31 v 4 50 39" src="https://github.com/user-attachments/assets/40706cd6-3b44-4181-8d85-62ce1810130b" />
 
-First Run vs Subsequent Runs
-First Run
 
-*If the repository has no stored state(:
+**First Run vs Subsequent Runs**
+
+**1. First Run**
+
+*If the repository has no stored state*:
 
 - only workflow runs from the last hour are shown
 - prevents flooding the output with historical data
 
-**Subsequent Runs**:
+**2.Subsequent Runs:**
 
 - last processed workflow run ID is loaded from disk
 - only newer workflow runs are reported
