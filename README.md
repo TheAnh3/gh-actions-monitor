@@ -65,13 +65,13 @@ The project is built using **Maven**.
 2. Run a standard build:
 
 ```bash
-mvn clean package
+mvn clean install
 ```
 In some environments, the build may stop or fail during test execution (for example due to missing environment configuration or network-related issues).
 In such cases, the project can be built while skipping tests:
 
 ```bash
-mvn clean package -DskipTests
+mvn clean install -DskipTests
 ```
 
 After a successful build, the executable JAR file will be created in the target directory:
